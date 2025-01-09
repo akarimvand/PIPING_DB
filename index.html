@@ -90,8 +90,14 @@
         $(document).ready(function() {
             // خواندن فایل DB.TXT از GitHub
             fetch('https://raw.githubusercontent.com/akarimvand/PIPING_DB/refs/heads/MAIN_PIPING/DB.txt')
-                .then(response => response.text())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('خطا در خواندن فایل DB.TXT');
+                    }
+                    return response.text();
+                })
                 .then(data => {
+                    console.log('داده‌های خوانده‌شده:', data); // برای دیباگ
                     const rows = data.trim().split('\n').slice(1); // سطر اول (هدر) را نادیده بگیرید
                     const tpSelect = $('#tp-select');
 
@@ -120,32 +126,54 @@
                                 <strong>Fitup:</strong> ${fitup}
                             `);
 
-                            // به‌روزرسانی نمودارها
-                            updateChart('weldChart', 'Weld', parseFloat(weld));
-                            updateChart('fitupChart', 'Fitup', parseFloat(fitup));
+                            // تبدیل مقادیر به عدد و به‌روزرسانی نمودارها
+                            const weldValue = parseFloat(weld); // تبدیل "21%" به 21
+                            const fitupValue = parseFloat(fitup); // تبدیل "35%" به 35
+
+                            if (!isNaN(weldValue) && !isNaN(fitupValue)) {
+                                updateChart('weldChart', 'Weld', weldValue);
+                                updateChart('fitupChart', 'Fitup', fitupValue);
+                            } else {
+                                console.error('مقادیر Weld یا Fitup نامعتبر هستند.');
+                            }
                         }
                     });
                 })
-                .catch(error => console.error('خطا در خواندن فایل:', error));
+                .catch(error => {
+                    console.error('خطا در خواندن فایل:', error);
+                    alert('خطا در خواندن فایل DB.TXT. لطفا کنسول را بررسی کنید.');
+                });
 
             // تابع به‌روزرسانی نمودار
             function updateChart(chartId, label, value) {
-                const ctx = document.getElementById(chartId).getContext('2d');
-                if (window[chartId]) {
+                const ctx = document.getElementById(chartId);
+                if (!ctx) {
+                    console.error(`عنصر با شناسه ${chartId} یافت نشد.`);
+                    return;
+                }
+
+                // اگر نمودار قبلی وجود دارد، آن را از بین ببرید
+                if (window[chartId] && typeof window[chartId].destroy === 'function') {
                     window[chartId].destroy();
                 }
+
+                // ایجاد نمودار جدید
                 window[chartId] = new Chart(ctx, {
                     type: 'pie',
                     data: {
                         labels: [label, 'Remaining'],
                         datasets: [{
-                            data: [value, 100 - value],
+                            data: [value, 100 - value], // نمایش مقدار و باقی‌مانده تا ۱۰۰%
                             backgroundColor: ['#36a2eb', '#ff6384'],
                         }]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        animation: {
+                            animateScale: true, // افزودن افکت متحرک
+                            animateRotate: true, // افزودن افکت چرخشی
+                        },
                         plugins: {
                             legend: {
                                 position: 'bottom',
